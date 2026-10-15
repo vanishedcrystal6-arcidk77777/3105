@@ -556,7 +556,7 @@ final class DeviceBridge: NSObject {
             var lengths: [Int] = files.map { $0.data.count }
             defer {
                 for s in cNames { free(s) }
-                for (i, p) in buffers.enumerated() { p?.deallocate(capacity: max(lengths[i], 1)) }
+                for p in buffers { p?.deallocate() }
             }
             var error: UnsafeMutablePointer<CChar>?
             let rc = cNames.withUnsafeBufferPointer { namesPtr in
