@@ -479,7 +479,10 @@ pub unsafe extern "C" fn tb_fs_list_json(
 ) -> i32 {
     ffi_entry!("tb_fs_list_json", out_error, {
         let bundle_id = ffi_util::opt_str(bundle_id, "");
-        let rel_path = ffi_util::opt_str(rel_path, ".");
+        let rel_path = {
+            let p = ffi_util::opt_str(rel_path, ".");
+            if p.is_empty() { ".".to_string() } else { p }
+        };
         match ffi_block("tb_fs_list_json", move || {
             runtime().block_on(with_session(handle, |s| {
                 let bundle_id = bundle_id.clone();

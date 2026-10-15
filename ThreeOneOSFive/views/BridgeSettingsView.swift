@@ -17,6 +17,7 @@ struct BridgeSettingsSection: View {
     @State private var busy = false
     @State private var statusMessage: String?
     @State private var pin: String?
+    @State private var refreshTimer: Timer?
 
     var body: some View {
         Section {
@@ -27,6 +28,12 @@ struct BridgeSettingsSection: View {
             if let pin {
                 Text("Device PIN: \(pin)")
                     .font(.headline.monospaced())
+            }
+
+            if !vpnActive {
+                Text("LocalDevVPN is not active. Open LocalDevVPN, turn the VPN on, then come back — this page updates automatically.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
 
             if let statusMessage {
@@ -44,7 +51,7 @@ struct BridgeSettingsSection: View {
             } label: {
                 Label("Pair with this iPhone", systemImage: "link.badge.plus")
             }
-            .disabled(!vpnActive || busy || pairing)
+            .disabled(busy || pairing)
 
             Button {
                 connectTunnel()
@@ -68,17 +75,31 @@ struct BridgeSettingsSection: View {
                     Label("Disconnect", systemImage: "xmark.circle")
                 }
             }
+
+            if paired {
+                Button(role: .destructive) {
+                    DeviceBridge.shared.resetPairing()
+                    refresh()
+                } label: {
+                    Label("Forget pairing", systemImage: "trash")
+                }
+            }
         } header: {
             Text("Device Bridge")
         } footer: {
-            Text("Required on iOS 26.1+ to reach app data. Enable LocalDevVPN, keep this screen open, pair, then connect.")
+            Text("Required on iOS 26.1+ to reach app data. Order matters: 1) turn LocalDevVPN on, 2) pair, 3) connect, 4) run the self test.")
         }
         .onAppear {
             DeviceBridge.shared.onStateChange = { _ in refresh() }
             DeviceBridge.shared.onPairingPIN = { value in pin = value }
             refresh()
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+                refresh()
+            }
         }
         .onDisappear {
+            refreshTimer?.invalidate()
+            refreshTimer = nil
             DeviceBridge.shared.onStateChange = nil
             DeviceBridge.shared.onPairingPIN = nil
         }
@@ -96,13 +117,13 @@ struct BridgeSettingsSection: View {
     private func startPairing() {
         busy = true
         pairing = true
-        statusMessage = "Waiting for the device… accept the pairing prompt."
+        statusMessage = "Waiting for the device… keep this screen open and accept the pairing prompt."
         DeviceBridge.shared.startPairing { result in
             busy = false
             pairing = false
             switch result {
             case .success:
-                statusMessage = "Paired. Now connect the tunnel."
+                statusMessage = "Paired. Now tap “Connect tunnel”."
                 pin = nil
             case .failure(let error):
                 statusMessage = error.localizedDescription

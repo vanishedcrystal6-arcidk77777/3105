@@ -135,8 +135,8 @@ async fn housekeeping(afc: &mut AfcClient) -> Option<Vec<u8>> {
     };
 
     // Clear stale sync state so ATAirlock picks up our manifest cleanly.
+    // NB: do NOT touch "Books/Books.plist" (the user's library index).
     for f in [
-        "Books/Books.plist",
         "Books/Sync/Books.plist",
         "Books/Sync/Upload.plist",
         "Books/OutstandingAssets_4.sqlite",

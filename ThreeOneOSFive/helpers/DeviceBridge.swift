@@ -72,7 +72,9 @@ final class DeviceBridge: NSObject {
     var onPairingPIN: ((String) -> Void)?
 
     var isConnected: Bool {
-        syncOp { sessionHandle != 0 }
+        // Read-only UI hint; the handle is a plain UInt32 so a racy read is
+        // harmless. Never serialise this on opQueue — it is called on main.
+        sessionHandle != 0
     }
 
     private static var didInitLogging = false
@@ -141,7 +143,11 @@ final class DeviceBridge: NSObject {
                 if inet_ntop(AF_INET, &sin.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN)) != nil {
                     let ip = String(cString: buf)
                     let name = String(cString: ifa.ifa_name)
-                    if name.hasPrefix("utun"), ip.hasPrefix("10.7.0.") {
+                    let octets = ip.split(separator: ".")
+                    let isPrivate = ip.hasPrefix("10.") || ip.hasPrefix("192.168.")
+                        || (octets.count == 4 && octets[0] == "172" && (16...31).contains(Int(octets[1]) ?? 0))
+                    if name.hasPrefix("utun"), isPrivate {
+                        // Loopback VPN client address (LocalDevVPN: 10.7.0.x)
                         vpnLocal.append(ip)
                     } else if !ip.hasPrefix("127."), !ip.hasPrefix("169.254."), !name.hasPrefix("utun") {
                         otherLocal.append(ip)
@@ -335,6 +341,16 @@ final class DeviceBridge: NSObject {
         }
     }
 
+    /// Forget pairing credentials and close the tunnel.
+    func resetPairing() {
+        disconnect()
+        syncOp {
+            containerCache.removeAll()
+            try? FileManager.default.removeItem(at: pairingFileURL)
+            altIRK = nil
+        }
+    }
+
     /// Drop a broken session and reopen once. Throws if reconnect fails.
     private func reconnect() throws {
         try syncOp {
@@ -512,10 +528,9 @@ final class DeviceBridge: NSObject {
     /// Attributes of a container-relative path; nil when it does not exist.
     func fsAttributes(bundleID: String, path: String) -> BridgedFileInfo? {
         do {
-            let list = try fsList(
-                bundleID: bundleID,
-                path: (path as NSString).deletingLastPathComponent
-            )
+            var parent = (path as NSString).deletingLastPathComponent
+            if parent.isEmpty { parent = "." }
+            let list = try fsList(bundleID: bundleID, path: parent)
             return list.first { $0.name == (path as NSString).lastPathComponent }
         } catch {
             return nil
@@ -547,13 +562,13 @@ final class DeviceBridge: NSObject {
     func atcWriteBatch(targetDirectory: String, files: [(name: String, data: Data)]) throws {
         guard !files.isEmpty else { return }
         try performWithReconnect { handle in
-            var cNames: [UnsafeMutablePointer<CChar>?] = files.map { strdup($0.name) }
-            var buffers: [UnsafeMutablePointer<UInt8>?] = files.map { file in
+            let cNames: [UnsafeMutablePointer<CChar>?] = files.map { strdup($0.name) }
+            let buffers: [UnsafeMutablePointer<UInt8>?] = files.map { file in
                 let p = UnsafeMutablePointer<UInt8>.allocate(capacity: max(file.data.count, 1))
                 file.data.copyBytes(to: p, count: file.data.count)
                 return p
             }
-            var lengths: [Int] = files.map { $0.data.count }
+            let lengths: [Int] = files.map { $0.data.count }
             defer {
                 for s in cNames { free(s) }
                 for p in buffers { p?.deallocate() }
@@ -623,6 +638,7 @@ final class DeviceBridge: NSObject {
     private func openSessionIfNeeded() throws {
         let connected = syncOp { sessionHandle != 0 }
         if !connected {
+            try configureTargets()
             try openSession()
         }
     }
