@@ -1,0 +1,45 @@
+name: build-ipa
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Build unsigned app
+        run: |
+          xcodebuild \
+            -project ThreeOneOSFive.xcodeproj \
+            -scheme 3105 \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Build/Products/Release-iphoneos/3105.app" out/Payload/
+          cd out
+          zip -qry 3105-2.1-unsigned.ipa Payload
+          ls -lh 3105-2.1-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3105-unsigned-ipa
+          path: out/3105-2.1-unsigned.ipa
+          if-no-files-found: error

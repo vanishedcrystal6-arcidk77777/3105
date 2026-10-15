@@ -44,7 +44,14 @@ enum ExploitSupportPolicy {
             return minor < 6 || (minor == 6 && patch <= 1)
         }
 
-        guard major == 27, minor == 0, patch == 0 else { return false }
-        return iOS27BetaNumber(for: build) != nil
+        // iOS 27 (beta and release trains) uses the MHA/bad_query container
+        // path, which does not depend on the build number. The beta build
+        // list above stays as the verified set for display; release builds
+        // (24A427, 24A437, 24A8428, 24A446, …) are accepted as equivalent.
+        if major == 27 {
+            return minor >= 0 && patch >= 0
+        }
+
+        return false
     }
 }

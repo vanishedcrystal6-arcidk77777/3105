@@ -8,7 +8,7 @@ struct ContentView: View {
     @EnvironmentObject private var patchStore: PatchProjectStore
     @EnvironmentObject private var repositoryStore: PackageRepositoryStore
     @AppStorage(FeatureVisibility.developerModeStorageKey)
-    private var developerModeEnabled = false
+    private var developerModeEnabled = true
     @State private var tabNavigation: AppTabNavigationState
     @State private var showSettings = false
     @State private var showLogs = false

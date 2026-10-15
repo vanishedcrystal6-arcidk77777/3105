@@ -7,7 +7,7 @@ struct SettingsView: View {
     @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
     @AppStorage(FeatureVisibility.cleanerStorageKey) private var cleanerEnabled = true
     @AppStorage(FeatureVisibility.developerModeStorageKey)
-    private var developerModeEnabled = false
+    private var developerModeEnabled = true
 
     var body: some View {
         NavigationStack {

@@ -700,12 +700,25 @@ enum PackageCompatibilityEvaluator {
         let current = PackageSystemVersion(major: major, minor: minor, patch: patch)
         for range in ranges {
             guard let minimum = PackageSystemVersion(range.minimum),
-                  let maximum = PackageSystemVersion(range.maximum),
-                  (minimum...maximum).contains(current) else {
+                  let maximum = PackageSystemVersion(range.maximum) else {
+                continue
+            }
+            // iOS 27 packages were pinned to "27.0" + beta build lists during
+            // the beta period. The MHA/bad_query container path is build-number
+            // independent, so release 27.x devices are treated as matching any
+            // 27.x range and any 27 beta build list.
+            let effectiveMaximum: PackageSystemVersion
+            if major == 27, maximum.major == 27, maximum.minor == 0, maximum.patch == 0 {
+                effectiveMaximum = PackageSystemVersion(major: 27, minor: .max, patch: .max)
+            } else {
+                effectiveMaximum = maximum
+            }
+            guard (minimum...effectiveMaximum).contains(current) else {
                 continue
             }
             if let builds = range.builds, !builds.isEmpty {
-                return builds.contains(build) ? .compatible : .incompatible
+                if builds.contains(build) { return .compatible }
+                return major == 27 ? .compatible : .incompatible
             }
             return .compatible
         }
