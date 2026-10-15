@@ -509,6 +509,10 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.2;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Bridge/rust/target/aarch64-apple-ios/release",
+				);
 				OTHER_LDFLAGS = "-lz";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.mobile.MobileHouseArrest";
 				PRODUCT_NAME = 3105;
@@ -543,6 +547,10 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.2;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Bridge/rust/target/aarch64-apple-ios/release",
+				);
 				OTHER_LDFLAGS = "-lz";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.mobile.MobileHouseArrest";
 				PRODUCT_NAME = 3105;
