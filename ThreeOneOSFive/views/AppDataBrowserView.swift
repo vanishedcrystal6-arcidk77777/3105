@@ -381,6 +381,31 @@ struct AppDataBrowserView: View {
                 $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
             }
 
+            // Stock iOS 26.1+: local enumeration is sandboxed away. When the
+            // LocalDevVPN bridge is paired, list apps through installation_proxy.
+            if result.isEmpty, DeviceBridge.shared.hasPairingFile {
+                let bridgedApps = (try? DeviceBridge.shared.listApps()) ?? []
+                let bridged: [InstalledApp] = bridgedApps.compactMap { app in
+                    guard let container = app.container, !container.isEmpty else { return nil }
+                    return InstalledApp(
+                        bundleID: app.bundleID,
+                        name: app.name,
+                        containerPath: container,
+                        version: "",
+                        icon: nil
+                    )
+                }
+                if !bridged.isEmpty {
+                    log("browser: bridge listed \(bridged.count) apps via installation_proxy")
+                    result = bridged.filter {
+                        ContainerPresentationPolicy.shouldShow(bundleID: $0.bundleID)
+                    }
+                    result.sort {
+                        $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+                    }
+                }
+            }
+
             DispatchQueue.main.async {
                 apps = result
                 isLoading = false

@@ -8,6 +8,7 @@ xcuserdata/
 *.xcscmblueprint
 
 # Build products
+Bridge/rust/target/
 build/
 DerivedData/
 *.ipa

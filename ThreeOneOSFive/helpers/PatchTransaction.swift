@@ -563,6 +563,30 @@ enum PatchTransaction {
             }
     }
 
+    /// Every (bundleID, relativePath) a receipt's transaction touches — the
+    /// bridge staging engine uses this to mirror device state before replaying
+    /// the journal operations locally.
+    static func requiredPaths(
+        for receipt: PatchTransactionReceipt
+    ) throws -> (
+        files: [(bundleID: String, relativePath: String)],
+        directories: [(bundleID: String, relativePath: String)]
+    ) {
+        let journal = try readJournal(receipt.journalURL)
+        guard (minimumSchemaVersion...schemaVersion).contains(journal.schemaVersion),
+              journal.transactionID == receipt.id,
+              journal.projectID == receipt.projectID else {
+            throw PatchPackageError.restoreFailed
+        }
+        let files = journal.records.map {
+            (bundleID: $0.bundleID, relativePath: $0.relativePath)
+        }
+        let directories = (journal.createdDirectories ?? []).map {
+            (bundleID: $0.bundleID, relativePath: $0.relativePath)
+        }
+        return (files, directories)
+    }
+
     private static func activeJournal(for receipt: PatchTransactionReceipt) throws -> Journal {
         let journal = try readJournal(receipt.journalURL)
         guard (minimumSchemaVersion...schemaVersion).contains(journal.schemaVersion),

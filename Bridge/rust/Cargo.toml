@@ -1,0 +1,50 @@
+[package]
+name = "tofs_bridge"
+version = "2.0.0"
+edition = "2021"
+description = "3105 device bridge: RSD tunnel, CoreDevice file service, AirTraffic writes"
+license = "GPL-3.0-only AND MIT"
+
+# Parts of this crate (tunnel/pairing/ATC staging flow) are adapted from
+# AirCard-iOS (https://github.com/Mak5er/AirCard-iOS), MIT license.
+
+[lib]
+name = "tofs_bridge"
+crate-type = ["staticlib"]
+
+# TLS backend for idevice: aws-lc for shipping builds (matches the proven
+# stacks), ring for local Windows type-checks (no cmake needed):
+#   cargo check --target x86_64-pc-windows-msvc --no-default-features --features ring
+[features]
+default = ["aws-lc"]
+aws-lc = ["idevice/aws-lc"]
+ring = ["idevice/ring"]
+
+[dependencies]
+idevice = { git = "https://github.com/jkcoxson/idevice.git", rev = "3854a5df4a5a6dee71ffce4d8befc2ea356a8065", default-features = false, features = [
+  "remote_pairing",
+  "tunnel_tcp_stack",
+  "rsd",
+  "tcp",
+  "xpc",
+  "core_device",
+  "afc",
+  "installation_proxy",
+  "pair",
+] }
+
+plist = "1.8"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "fs", "time"] }
+serde_json = "1"
+zip = { version = "2", default-features = false }
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

@@ -1169,6 +1169,13 @@ struct FileBrowserView: View {
         return language.text(key)
     }
 
+    private static func bridgeRelativePath(for path: String, containerPath: String) -> String? {
+        let canonical = containerPath.hasSuffix("/") ? String(containerPath.dropLast()) : containerPath
+        if path == canonical { return "." }
+        guard path.hasPrefix(canonical + "/") else { return nil }
+        return String(path.dropFirst(canonical.count + 1))
+    }
+
     private func load() {
         let shouldGrant = !hasGranted && ContainerAccessPolicy.shouldRequestGrant(isRoot: isRoot)
         hasGranted = true
@@ -1190,7 +1197,25 @@ struct FileBrowserView: View {
                     log("filebrowser: traversal grant \(path) -> \(handle)")
                 }
             }
-            let loadedEntries = ContainerStore.listFiles(at: path)
+            let loadedEntriesLocal = ContainerStore.listFiles(at: path)
+            var loadedEntries = loadedEntriesLocal
+            if loadedEntriesLocal.isEmpty,
+               let targetBundleID,
+               DeviceBridge.shared.hasPairingFile,
+               let relative = FileBrowserView.bridgeRelativePath(for: path, containerPath: containerPath) {
+                let bridged = (try? DeviceBridge.shared.fsList(bundleID: targetBundleID, path: relative)) ?? []
+                if !bridged.isEmpty {
+                    loadedEntries = bridged.map { info in
+                        FileEntry(
+                            name: info.name,
+                            path: (path as NSString).appendingPathComponent(info.name),
+                            isDirectory: info.isDirectory,
+                            size: info.size,
+                            modifiedAt: info.modifiedAt
+                        )
+                    }
+                }
+            }
             DispatchQueue.main.async {
                 guard currentPath == path else { return }
                 entries = loadedEntries

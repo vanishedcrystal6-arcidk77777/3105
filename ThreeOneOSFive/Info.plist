@@ -100,5 +100,11 @@
     </array>
     <key>MinimumOSVersion</key>
     <string>16.0</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_remotepairing-pairable-host._tcp</string>
+    </array>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>3105 uses the local network to pair with this device over the loopback VPN.</string>
 </dict>
 </plist>

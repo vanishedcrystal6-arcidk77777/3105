@@ -76,6 +76,8 @@ struct SettingsView: View {
                     LabeledContent(language.text("settings.ios_version"), value: "\(AppInfo.osVersion) (\(AppInfo.osBuild))")
                 }
 
+                BridgeSettingsSection()
+
                 Section {
                     HStack {
                         Text(language.text("settings.current_version"))

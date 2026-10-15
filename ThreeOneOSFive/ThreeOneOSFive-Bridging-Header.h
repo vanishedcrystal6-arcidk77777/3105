@@ -5,3 +5,5 @@
 #import "kexploit/kutils.h"
 #import "helpers/AppIconHelper.h"
 #import "helpers/DisplayIdentity.h"
+#import "bridge/GrappaHelper.h"
+#import "../Bridge/include/tofs_bridge.h"

@@ -17,6 +17,30 @@ jobs:
           sudo xcode-select -s "$XCODE/Contents/Developer"
           xcodebuild -version
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            Bridge/rust/target
+          key: ${{ runner.os }}-bridge-rust-${{ hashFiles('Bridge/rust/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bridge-rust-
+
+      - name: Build bridge library (Rust)
+        run: |
+          cd Bridge/rust
+          cargo build --release --target aarch64-apple-ios
+          ls -lh target/aarch64-apple-ios/release/libtofs_bridge.a
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
       - name: Build unsigned app
         run: |
           xcodebuild \
@@ -35,11 +59,11 @@ jobs:
           mkdir -p out/Payload
           cp -R "build/Build/Products/Release-iphoneos/3105.app" out/Payload/
           cd out
-          zip -qry 3105-2.1-unsigned.ipa Payload
-          ls -lh 3105-2.1-unsigned.ipa
+          zip -qry 3105-2.2-unsigned.ipa Payload
+          ls -lh 3105-2.2-unsigned.ipa
 
       - uses: actions/upload-artifact@v4
         with:
           name: 3105-unsigned-ipa
-          path: out/3105-2.1-unsigned.ipa
+          path: out/3105-2.2-unsigned.ipa
           if-no-files-found: error

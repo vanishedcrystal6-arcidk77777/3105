@@ -9,6 +9,8 @@
 | LeminLimez and contributors | Pocket Poster, Nugget, and the `.tendies` package format | [Pocket-Poster](https://github.com/leminlimez/Pocket-Poster) |
 | forcequitOS | `bad_query` research | [GitHub profile](https://github.com/forcequitOS) |
 | opa334 and Dopamine contributors | Kernel-exploit research foundation | [Dopamine](https://github.com/opa334/Dopamine) |
+| Mak5er / AirCard-iOS | Device-bridge implementation foundations: RPPairing host, AirTraffic Book-sync writes, Grappa token helper (MIT) | [AirCard-iOS](https://github.com/Mak5er/AirCard-iOS) |
+| jkcoxson | `idevice` Rust crate: lockdownd/RSD/CoreDevice client stack used by the device bridge (GPL-3.0-compatible; see upstream license) | [idevice](https://github.com/jkcoxson/idevice) |
 
 Original portions of 3105 are distributed under GPL-3.0. Pocket-Poster also publishes a GPL-3.0 license in its upstream repository. FilzaSlop did not expose a repository license through GitHub when this notice was prepared. Review each upstream project and its current terms before redistributing derived code.
 
