@@ -111,7 +111,6 @@ struct BridgeSettingsSection: View {
         gateway = addrs.gateway
         paired = DeviceBridge.shared.hasPairingFile
         connected = DeviceBridge.shared.isConnected
-        if !connected { pairing = false }
     }
 
     private func startPairing() {
