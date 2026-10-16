@@ -162,10 +162,16 @@ async fn async_run_host(
     crate::logging::log(format!(
         "bridge: pairable host listening on port {bound_port}, waiting for device..."
     ));
-    let (stream, peer_addr) = listener
-        .accept()
-        .await
-        .map_err(|e| format!("accept failed: {e}"))?;
+    let (stream, peer_addr) = tokio::time::timeout(
+        std::time::Duration::from_secs(150),
+        listener.accept(),
+    )
+    .await
+    .map_err(|_| {
+        "pairing timed out — no device connected (turn LocalDevVPN on, then tap Pair again)"
+            .to_string()
+    })?
+    .map_err(|e| format!("accept failed: {e}"))?;
     crate::logging::log(format!("bridge: device connected from {peer_addr}"));
 
     let socket = RpPairingSocket::new_device(stream);
@@ -174,8 +180,9 @@ async fn async_run_host(
     let pin_cb = cbs.pin;
     let pin_ctx = cbs.ctx;
 
-    let peer_info = host
-        .accept(&mut pairing_file, move |pin| {
+    let peer_info = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        host.accept(&mut pairing_file, move |pin| {
             let pin_cb = pin_cb;
             let pin_ctx = pin_ctx;
             async move {
@@ -185,9 +192,11 @@ async fn async_run_host(
                     }
                 }
             }
-        })
-        .await
-        .map_err(|e| format!("pairing failed: {e}"))?;
+        }),
+    )
+    .await
+    .map_err(|_| "pairing handshake timed out — try again".to_string())?
+    .map_err(|e| format!("pairing failed: {e}"))?;
 
     crate::logging::log(format!(
         "bridge: pairing complete — {} ({})",

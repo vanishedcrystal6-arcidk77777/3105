@@ -7,8 +7,13 @@ import SwiftUI
 //   2. Pair: the app advertises a pairable host over the VPN; accept the
 //      prompt on the device.
 //   3. Connect: open the RSD tunnel. Patch + Files then work through it.
+//
+// No polling timer: a repeating timer rebuilds the Form mid-gesture and
+// eats taps. State refreshes on appear, on scene activation (returning
+// from LocalDevVPN), on bridge state changes, and after every action.
 
 struct BridgeSettingsSection: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var vpnActive = false
     @State private var gateway: String?
     @State private var paired = false
@@ -17,7 +22,7 @@ struct BridgeSettingsSection: View {
     @State private var busy = false
     @State private var statusMessage: String?
     @State private var pin: String?
-    @State private var refreshTimer: Timer?
+    @State private var pairingAttempt = 0
 
     var body: some View {
         Section {
@@ -31,7 +36,7 @@ struct BridgeSettingsSection: View {
             }
 
             if !vpnActive {
-                Text("LocalDevVPN is not active. Open LocalDevVPN, turn the VPN on, then come back — this page updates automatically.")
+                Text("LocalDevVPN is not active. Open LocalDevVPN, turn the VPN on, then come back — this page refreshes when you return.")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -46,26 +51,34 @@ struct BridgeSettingsSection: View {
                 Label("Get LocalDevVPN (App Store)", systemImage: "arrow.down.app")
             }
 
-            Button {
-                startPairing()
-            } label: {
-                Label("Pair with this iPhone", systemImage: "link.badge.plus")
+            if pairing {
+                Button(role: .cancel) {
+                    cancelPairing()
+                } label: {
+                    Label("Cancel pairing", systemImage: "xmark.circle")
+                }
+            } else {
+                Button {
+                    startPairing()
+                } label: {
+                    Label("Pair with this iPhone", systemImage: "link.badge.plus")
+                }
+                .disabled(busy)
             }
-            .disabled(busy || pairing)
 
             Button {
                 connectTunnel()
             } label: {
                 Label("Connect tunnel", systemImage: "point.3.connected.trianglepath.dotted")
             }
-            .disabled(!paired || connected || busy)
+            .disabled(!paired || connected || busy || pairing)
 
             Button {
                 runSelfTest()
             } label: {
                 Label("Run bridge self test", systemImage: "checkmark.shield")
             }
-            .disabled(!connected || busy)
+            .disabled(!connected || busy || pairing)
 
             if connected {
                 Button(role: .destructive) {
@@ -84,40 +97,55 @@ struct BridgeSettingsSection: View {
                     Label("Forget pairing", systemImage: "trash")
                 }
             }
+
+            Button {
+                refresh()
+            } label: {
+                Label("Refresh status", systemImage: "arrow.clockwise")
+            }
         } header: {
             Text("Device Bridge")
         } footer: {
             Text("Required on iOS 26.1+ to reach app data. Order matters: 1) turn LocalDevVPN on, 2) pair, 3) connect, 4) run the self test.")
         }
         .onAppear {
-            DeviceBridge.shared.onStateChange = { _ in refresh() }
-            DeviceBridge.shared.onPairingPIN = { value in pin = value }
-            refresh()
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
-                refresh()
+            DeviceBridge.shared.onStateChange = { _ in
+                Task { @MainActor in refresh() }
             }
+            DeviceBridge.shared.onPairingPIN = { value in
+                Task { @MainActor in pin = value }
+            }
+            refresh()
         }
         .onDisappear {
-            refreshTimer?.invalidate()
-            refreshTimer = nil
             DeviceBridge.shared.onStateChange = nil
             DeviceBridge.shared.onPairingPIN = nil
         }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { refresh() }
+        }
     }
 
+    /// Write state only when a value actually changed, so the Form never
+    /// rebuilds under an in-flight touch.
     private func refresh() {
         let addrs = DeviceBridge.shared.detectTunnelAddresses()
-        vpnActive = addrs.vpnActive
-        gateway = addrs.gateway
-        paired = DeviceBridge.shared.hasPairingFile
-        connected = DeviceBridge.shared.isConnected
+        if vpnActive != addrs.vpnActive { vpnActive = addrs.vpnActive }
+        if gateway != addrs.gateway { gateway = addrs.gateway }
+        let isPaired = DeviceBridge.shared.hasPairingFile
+        if paired != isPaired { paired = isPaired }
+        let isConnected = DeviceBridge.shared.isConnected
+        if connected != isConnected { connected = isConnected }
     }
 
     private func startPairing() {
         busy = true
         pairing = true
+        pairingAttempt += 1
+        let attempt = pairingAttempt
         statusMessage = "Waiting for the device… keep this screen open and accept the pairing prompt."
         DeviceBridge.shared.startPairing { result in
+            guard attempt == pairingAttempt else { return }
             busy = false
             pairing = false
             switch result {
@@ -129,6 +157,16 @@ struct BridgeSettingsSection: View {
             }
             refresh()
         }
+    }
+
+    private func cancelPairing() {
+        pairingAttempt += 1
+        busy = false
+        pairing = false
+        pin = nil
+        statusMessage = "Pairing cancelled."
+        DeviceBridge.shared.abandonPairing()
+        refresh()
     }
 
     private func connectTunnel() {

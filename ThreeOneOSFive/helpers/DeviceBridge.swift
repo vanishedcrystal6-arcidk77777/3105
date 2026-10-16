@@ -296,6 +296,16 @@ final class DeviceBridge: NSObject {
         if Thread.isMainThread { stop() } else { DispatchQueue.main.sync(execute: stop) }
     }
 
+    /// UI-side cancel: stop advertising and release the pairing flag so a new
+    /// Pair tap works. The Rust pairing thread still self-terminates on its
+    /// 150s timeout; if it completes anyway, the pairing file lands on disk
+    /// and is picked up by the next refresh.
+    func abandonPairing() {
+        stopPublishingPairingService()
+        syncOp { self.pairingThreadActive = false }
+        if state == .pairing { state = .disconnected }
+    }
+
     // MARK: Session
 
     /// Open the tunnel session if a pairing file exists and the VPN is up.
